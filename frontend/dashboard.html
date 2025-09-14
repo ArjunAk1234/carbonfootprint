@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Footprint Tracker - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <ul>
+                <li><a href="#dashboardSummary">Dashboard</a></li>
+                <li><a href="#dataEntry">Data Entry</a></li>
+                <li><a href="#electricConsumption">Electric</a></li>
+                <li><a href="#population">Population</a></li>
+                <li><a href="#transport">Transport</a></li>
+                <li><a href="#waterConsumption">Water</a></li>
+                <li><a href="#wasteGeneration">Waste</a></li>
+                <li><a href="#accommodation">Accommodation</a></li>
+                <li><a href="#goodsPurchased">Goods</a></li>
+            </ul>
+            <button id="logoutButton" class="logout-button">Logout</button>
+        </nav>
+
+        <h1>Carbon Footprint Dashboard</h1>
+        <div id="messageContainer"></div>
+
+        <section id="dashboardSummary">
+            <!-- Dashboard summary will be loaded here by JavaScript -->
+        </section>
+
+        <hr>
+
+        <section id="dataEntry">
+            <h2>Data Entry Modules</h2>
+
+            <h3>Add Electric Consumption</h3>
+            <form id="addElectricForm">
+                <label for="electricSource">Source:</label>
+                <select id="electricSource" name="source" required>
+                    <option value="main board">Main Electric Board</option>
+                    <option value="generator">Diesel Generator</option>
+                </select>
+
+                <label for="electricKWH">KWH (for Main Board):</label>
+                <input type="number" id="electricKWH" name="kwh" step="0.01" value="0">
+
+                <label for="electricFuelLiters">Fuel Consumed (liters, for Generator):</label>
+                <input type="number" id="electricFuelLiters" name="fuel_liters" step="0.01" value="0">
+
+                <label for="electricHours">Hours of Operation (for Generator):</label>
+                <input type="number" id="electricHours" name="hours" step="0.01" value="0">
+
+                <label for="electricDate">Date:</label>
+                <input type="date" id="electricDate" name="date" required>
+
+                <label for="electricLocation">Location:</label>
+                <input type="text" id="electricLocation" name="location" value="Overall">
+
+                <button type="submit">Add Electric Reading</button>
+            </form>
+
+            <h3>Add Population Data</h3>
+            <form id="addPopulationForm">
+                <label for="populationRegistered">Registered Count:</label>
+                <input type="number" id="populationRegistered" name="registered_count" required>
+
+                <label for="populationFloating">Floating Count:</label>
+                <input type="number" id="populationFloating" name="floating_count" required>
+
+                <label for="populationDate">Date:</label>
+                <input type="date" id="populationDate" name="date" required>
+
+                <label for="populationLocation">Location:</label>
+                <input type="text" id="populationLocation" name="location" value="Overall">
+
+                <button type="submit">Add Population Data</button>
+            </form>
+
+            <h3>Add Transport Data</h3>
+            <form id="addTransportForm">
+                <label for="transportVehicleType">Vehicle Type:</label>
+                <input type="text" id="transportVehicleType" name="vehicle_type" required>
+
+                <label for="transportFuelType">Fuel Type:</label>
+                <input type="text" id="transportFuelType" name="fuel_type" required placeholder="e.g., Diesel, Petrol">
+
+                <label for="transportDistanceKM">Distance Traveled (KM):</label>
+                <input type="number" id="transportDistanceKM" name="distance_km" step="0.01" required>
+
+                <label for="transportFuelLiters">Fuel Consumed (Liters):</label>
+                <input type="number" id="transportFuelLiters" name="fuel_liters" step="0.01" required>
+
+                <label for="transportDate">Date:</label>
+                <input type="date" id="transportDate" name="date" required>
+
+                <label for="transportLocation">Location:</label>
+                <input type="text" id="transportLocation" name="location" value="Overall">
+
+                <button type="submit">Add Transport Data</button>
+            </form>
+
+            <h3>Add Water Consumption</h3>
+            <form id="addWaterForm">
+                <label for="waterMeterReading">Meter Reading:</label>
+                <input type="number" id="waterMeterReading" name="meter_reading" step="0.01" required>
+
+                <label for="waterDate">Date:</label>
+                <input type="date" id="waterDate" name="date" required>
+
+                <label for="waterLocation">Location:</label>
+                <input type="text" id="waterLocation" name="location" value="Overall">
+
+                <button type="submit">Add Water Reading</button>
+            </form>
+
+            <h3>Add Waste Entry</h3>
+            <form id="addWasteForm">
+                <label for="wasteSpotName">Spot Name:</label>
+                <input type="text" id="wasteSpotName" name="spot_name" required>
+
+                <label for="wasteType">Waste Type:</label>
+                <select id="wasteType" name="waste_type" required>
+                    <option value="biodegradable">Biodegradable</option>
+                    <option value="recyclable">Recyclable</option>
+                    <option value="landfill">Landfill</option>
+                </select>
+
+                <label for="wasteWeightKG">Weight (KG):</label>
+                <input type="number" id="wasteWeightKG" name="weight_kg" step="0.01" required>
+
+                <label for="wasteDate">Date:</label>
+                <input type="date" id="wasteDate" name="date" required>
+
+                <label for="wasteLocation">Location:</label>
+                <input type="text" id="wasteLocation" name="location" value="Overall">
+
+                <button type="submit">Add Waste Entry</button>
+            </form>
+
+            <h3>Add Accommodation Data</h3>
+            <form id="addAccommodationForm">
+                <label for="accommodationPeopleCount">People Count:</label>
+                <input type="number" id="accommodationPeopleCount" name="people_count" required>
+
+                <label for="accommodationNights">Nights:</label>
+                <input type="number" id="accommodationNights" name="nights" required>
+
+                <label for="accommodationDate">Date:</label>
+                <input type="date" id="accommodationDate" name="date" required>
+
+                <label for="accommodationLocation">Location:</label>
+                <input type="text" id="accommodationLocation" name="location" value="Overall">
+
+                <button type="submit">Add Accommodation Data</button>
+            </form>
+
+            <h3>Add Goods Purchased</h3>
+            <form id="addGoodsForm">
+                <label for="goodsItemName">Item Name:</label>
+                <input type="text" id="goodsItemName" name="item_name" required>
+
+                <label for="goodsQuantity">Quantity:</label>
+                <input type="number" id="goodsQuantity" name="quantity" required>
+
+                <label for="goodsCost">Cost:</label>
+                <input type="number" id="goodsCost" name="cost" step="0.01" required>
+
+                <label for="goodsDate">Date:</label>
+                <input type="date" id="goodsDate" name="date" required>
+
+                <label for="goodsLocation">Location:</label>
+                <input type="text" id="goodsLocation" name="location" value="Overall">
+
+                <button type="submit">Add Goods Purchased</button>
+            </form>
+
+        </section>
+
+        <hr>
+
+        <h2>Detailed Data Lists</h2>
+
+        <section id="electricConsumption">
+            <h3>Electric Consumption Readings</h3>
+            <div id="electricDataList">Loading electric consumption data...</div>
+        </section>
+
+        <section id="population">
+            <h3>Population Statistics</h3>
+            <div id="populationDataList">Loading population data...</div>
+        </section>
+
+        <section id="transport">
+            <h3>Transport Data</h3>
+            <div id="transportDataList">Loading transport data...</div>
+        </section>
+
+        <section id="waterConsumption">
+            <h3>Water Consumption Readings</h3>
+            <div id="waterDataList">Loading water consumption data...</div>
+        </section>
+
+        <section id="wasteGeneration">
+            <h3>Waste Generation Entries</h3>
+            <div id="wasteDataList">Loading waste data...</div>
+        </section>
+
+        <section id="accommodation">
+            <h3>Accommodation Details</h3>
+            <div id="accommodationDataList">Loading accommodation data...</div>
+        </section>
+
+        <section id="goodsPurchased">
+            <h3>Goods Purchased Records</h3>
+            <div id="goodsDataList">Loading goods purchased data...</div>
+        </section>
+
+    </div>
+
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>
