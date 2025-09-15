@@ -12,11 +12,15 @@ import (
 )
 
 func main() {
+	// Load configuration (DB connection, JWT secret)
 	config.LoadConfig()
-	defer config.DB.Close()
+	defer config.DB.Close() // Ensure DB connection is closed when main exits
+
+	// Initialize Gin router
 	router := gin.Default()
+
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://127.0.0.1:8000", "http://localhost:8000", "http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowOrigins:     []string{"http://127.0.0.1:8000", "http://localhost:8000", "http://localhost:5500", "http://127.0.0.1:5500"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -24,16 +28,18 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// Public Routes (No authentication required)
 	authRoutes := router.Group("/auth")
 	{
 		authRoutes.POST("/register", handlers.RegisterUser)
 		authRoutes.POST("/login", handlers.LoginUser)
 	}
 
+	// Authenticated Routes (Requires JWT token)
 	authenticated := router.Group("/")
 	authenticated.Use(middleware.AuthRequired())
 	{
-
+		// User Management (Admin only)
 		userRoutes := authenticated.Group("/users")
 		userRoutes.Use(middleware.AuthorizeRoles("admin"))
 		{
@@ -43,6 +49,7 @@ func main() {
 			userRoutes.DELETE("/:id", handlers.DeleteUser)
 		}
 
+		// Electric Consumption
 		electricRoutes := authenticated.Group("/electric")
 		electricRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -52,6 +59,7 @@ func main() {
 			electricRoutes.DELETE("/:id", handlers.DeleteElectricConsumption)
 		}
 
+		// Population
 		populationRoutes := authenticated.Group("/population")
 		populationRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -61,6 +69,7 @@ func main() {
 			populationRoutes.DELETE("/:id", handlers.DeletePopulation)
 		}
 
+		// Transport
 		transportRoutes := authenticated.Group("/transport")
 		transportRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -70,15 +79,27 @@ func main() {
 			transportRoutes.DELETE("/:id", handlers.DeleteTransportData)
 		}
 
-		waterRoutes := authenticated.Group("/water")
-		waterRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
+		// Water Consumption (Usage)
+		waterConsumptionRoutes := authenticated.Group("/water_consumption")
+		waterConsumptionRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
-			waterRoutes.GET("", handlers.GetWaterReadings)
-			waterRoutes.POST("", handlers.AddWaterReading)
-			waterRoutes.PUT("/:id", handlers.UpdateWaterReading)
-			waterRoutes.DELETE("/:id", handlers.DeleteWaterReading)
+			waterConsumptionRoutes.GET("", handlers.GetWaterConsumptions)
+			waterConsumptionRoutes.POST("", handlers.AddWaterConsumption)
+			waterConsumptionRoutes.PUT("/:id", handlers.UpdateWaterConsumption)
+			waterConsumptionRoutes.DELETE("/:id", handlers.DeleteWaterConsumption)
 		}
 
+		// Water Treatment (NEW Module)
+		waterTreatmentRoutes := authenticated.Group("/water_treatment")
+		waterTreatmentRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
+		{
+			waterTreatmentRoutes.GET("", handlers.GetWaterTreatments)
+			waterTreatmentRoutes.POST("", handlers.AddWaterTreatment)
+			waterTreatmentRoutes.PUT("/:id", handlers.UpdateWaterTreatment)
+			waterTreatmentRoutes.DELETE("/:id", handlers.DeleteWaterTreatment)
+		}
+
+		// Waste Generation
 		wasteRoutes := authenticated.Group("/waste")
 		wasteRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -88,6 +109,7 @@ func main() {
 			wasteRoutes.DELETE("/:id", handlers.DeleteWasteEntry)
 		}
 
+		// Accommodation
 		accommodationRoutes := authenticated.Group("/accommodation")
 		accommodationRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -97,6 +119,7 @@ func main() {
 			accommodationRoutes.DELETE("/:id", handlers.DeleteAccommodationData)
 		}
 
+		// Goods Purchased
 		goodsRoutes := authenticated.Group("/goods")
 		goodsRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
 		{
@@ -106,6 +129,17 @@ func main() {
 			goodsRoutes.DELETE("/:id", handlers.DeleteGoodsPurchased)
 		}
 
+		// Food Consumption (NEW Module)
+		foodConsumptionRoutes := authenticated.Group("/food_consumption")
+		foodConsumptionRoutes.Use(middleware.AuthorizeRoles("admin", "staff"))
+		{
+			foodConsumptionRoutes.GET("", handlers.GetFoodConsumptions)
+			foodConsumptionRoutes.POST("", handlers.AddFoodConsumption)
+			foodConsumptionRoutes.PUT("/:id", handlers.UpdateFoodConsumption)
+			foodConsumptionRoutes.DELETE("/:id", handlers.DeleteFoodConsumption)
+		}
+
+		// Dashboard (Admin and Viewer roles)
 		dashboardRoutes := authenticated.Group("/dashboard")
 		dashboardRoutes.Use(middleware.AuthorizeRoles("admin", "staff", "viewer"))
 		{
@@ -113,5 +147,6 @@ func main() {
 		}
 	}
 
-	log.Fatal(router.Run(":8080"))
+	// Run the server
+	log.Fatal(router.Run(":8080")) // Listen and serve on 0.0.0.0:8080
 }

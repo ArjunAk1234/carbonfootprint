@@ -10,27 +10,56 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type TransportRequest struct {
+	Date                     time.Time `json:"date"`
+	EventAreaLocation        string    `json:"event_area_location"`
+	VehicleType              string    `json:"vehicle_type" binding:"required"`
+	FuelType                 string    `json:"fuel_type" binding:"required"`
+	VehicleNumber            string    `json:"vehicle_number"`
+	StartLocation            string    `json:"start_location"`
+	EndLocation              string    `json:"end_location"`
+	DistanceKM               float64   `json:"distance_km" binding:"required"`
+	FuelLiters               float64   `json:"fuel_liters" binding:"required"`
+	PeopleTravelledCount     int       `json:"people_travelled_count"`
+	FuelEfficiencyKMPerLiter float64   `json:"fuel_efficiency_km_per_liter"`
+	Remarks                  string    `json:"remarks"`
+}
+
 func AddTransportData(c *gin.Context) {
-	var req models.Transport
+	var req TransportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if req.Location == "" {
-		req.Location = "Overall"
+	if req.EventAreaLocation == "" {
+		req.EventAreaLocation = "Overall"
 	}
-
 	if req.Date.IsZero() {
 		req.Date = time.Now()
 	}
 
-	if err := req.Create(); err != nil {
+	t := models.Transport{
+		Date:                     req.Date,
+		EventAreaLocation:        req.EventAreaLocation,
+		VehicleType:              req.VehicleType,
+		FuelType:                 req.FuelType,
+		VehicleNumber:            toNullString(req.VehicleNumber),
+		StartLocation:            toNullString(req.StartLocation),
+		EndLocation:              toNullString(req.EndLocation),
+		DistanceKM:               req.DistanceKM,
+		FuelLiters:               req.FuelLiters,
+		PeopleTravelledCount:     toNullInt32(req.PeopleTravelledCount),
+		FuelEfficiencyKMPerLiter: toNullFloat64(req.FuelEfficiencyKMPerLiter),
+		Remarks:                  toNullString(req.Remarks),
+	}
+
+	if err := t.Create(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add transport data", "details": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Transport data added successfully", "id": req.ID})
+	c.JSON(http.StatusCreated, gin.H{"message": "Transport data added successfully", "id": t.ID})
 }
 
 func GetTransportData(c *gin.Context) {
@@ -60,30 +89,34 @@ func UpdateTransportData(c *gin.Context) {
 		return
 	}
 
-	var req models.Transport
+	var req TransportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	t.Date = req.Date
+	if req.EventAreaLocation != "" {
+		t.EventAreaLocation = req.EventAreaLocation
+	}
 	if req.VehicleType != "" {
 		t.VehicleType = req.VehicleType
 	}
 	if req.FuelType != "" {
 		t.FuelType = req.FuelType
 	}
+	t.VehicleNumber = toNullString(req.VehicleNumber)
+	t.StartLocation = toNullString(req.StartLocation)
+	t.EndLocation = toNullString(req.EndLocation)
 	if req.DistanceKM != 0 {
 		t.DistanceKM = req.DistanceKM
 	}
 	if req.FuelLiters != 0 {
 		t.FuelLiters = req.FuelLiters
 	}
-	if !req.Date.IsZero() {
-		t.Date = req.Date
-	}
-	if req.Location != "" {
-		t.Location = req.Location
-	}
+	t.PeopleTravelledCount = toNullInt32(req.PeopleTravelledCount)
+	t.FuelEfficiencyKMPerLiter = toNullFloat64(req.FuelEfficiencyKMPerLiter)
+	t.Remarks = toNullString(req.Remarks)
 
 	if err := t.Update(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transport data", "details": err.Error()})

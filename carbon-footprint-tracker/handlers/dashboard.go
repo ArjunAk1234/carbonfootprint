@@ -7,20 +7,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Simplified Emission Factors (PLACEHOLDER VALUES - USE ACTUAL FACTORS FOR ACCURATE CALCULATIONS)
 const (
-	// Electricity grid emissions (kg CO2e / kWh) - Varies heavily by region
-	EmissionFactorElectricity = 0.4 // Example: average for some grids
-	// Diesel fuel (kg CO2e / liter)
+	EmissionFactorGridElectricity = 0.45
+
 	EmissionFactorDiesel = 2.68
-	// Petrol/Gasoline fuel (kg CO2e / liter)
+
 	EmissionFactorPetrol = 2.31
-	// Water consumption (kg CO2e / liter) - for treatment and distribution
-	EmissionFactorWater = 0.00034 // Example: 0.34 kg CO2e per m³ (1000 liters)
-	// Waste (kg CO2e / kg) - highly dependent on waste type and disposal method
-	EmissionFactorWasteBiodegradable = 0.1  // Example: simple composting
-	EmissionFactorWasteRecyclable    = -0.1 // Example: positive impact from recycling
-	EmissionFactorWasteLandfill      = 0.5  // Example: includes methane from decomposition
+
+	EmissionFactorBiofuel = 1.0
+
+	EmissionFactorWaterTreatmentDist = 0.00034
+
+	EmissionFactorWasteBiodegradable = 0.1
+	EmissionFactorWasteRecyclable    = -0.1
+	EmissionFactorWasteLandfill      = 0.5
+	EmissionFactorWasteEwaste        = 2.0
+	EmissionFactorGoodsCost          = 0.05
+
+	EmissionFactorFoodWater = 0.0001
+
+	EmissionFactorLPG = 2.98
+
+	EmissionFactorFirewood  = 1.8
+	EmissionFactorChemicals = 1.0
 )
 
 type DashboardData struct {
@@ -28,16 +37,15 @@ type DashboardData struct {
 	ComponentBreakdown   map[string]float64     `json:"component_breakdown"`
 	PerCapitaFootprint   float64                `json:"per_capita_footprint_co2e"`
 	TotalPopulation      int                    `json:"total_population"`
-	Trends               map[string]interface{} `json:"trends,omitempty"` // Placeholder for trends
+	Trends               map[string]interface{} `json:"trends,omitempty"`
 }
 
-// GetDashboardSummary provides a summarized view of the carbon footprint
 func GetDashboardSummary(c *gin.Context) {
 	totalCarbonFootprint := 0.0
 	componentBreakdown := make(map[string]float64)
 	totalPopulation := 0
 
-	// 1. Electrical Consumption
+	//1. Electrical Consumption
 	electricConsumptions, err := models.GetAllElectricConsumptions()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get electric consumption data for dashboard", "details": err.Error()})
@@ -45,29 +53,42 @@ func GetDashboardSummary(c *gin.Context) {
 	}
 	electricFootprint := 0.0
 	for _, ec := range electricConsumptions {
-		if ec.Source == "main board" && ec.KWH > 0 {
-			electricFootprint += ec.KWH * EmissionFactorElectricity
-		} else if ec.Source == "generator" && ec.FuelLiters > 0 {
-			// Assuming diesel generators for simplicity
-			electricFootprint += ec.FuelLiters * EmissionFactorDiesel
+		switch ec.Source {
+		case "Main Board":
+			if ec.GridElectricityUsedKWH.Valid {
+				electricFootprint += ec.GridElectricityUsedKWH.Float64 * EmissionFactorGridElectricity
+			}
+			// Solar generated is an offset, not an emission
+			if ec.SolarGeneratedKWH.Valid {
+				// This assumes solar generation directly offsets grid consumption.
+				// For net calculation: electricFootprint -= ec.SolarGeneratedKWH.Float64 * EmissionFactorGridElectricity
+				// For gross accounting, it's typically separate. For simplicity, just track grid usage.
+			}
+		case "Diesel Generator":
+			if ec.FuelConsumedLiters.Valid {
+				electricFootprint += ec.FuelConsumedLiters.Float64 * EmissionFactorDiesel
+			}
+		case "Biofuel Generator":
+			if ec.FuelConsumedLiters.Valid {
+				electricFootprint += ec.FuelConsumedLiters.Float64 * EmissionFactorBiofuel // Assumed lower factor
+			}
+			// "Solar Generation" source itself doesn't cause emissions, but represents offset potential
 		}
 	}
 	componentBreakdown["Electrical"] = electricFootprint
 	totalCarbonFootprint += electricFootprint
 
-	// 2. Population (for per-capita)
+	//2. Population (for per-capita)
 	populations, err := models.GetAllPopulations()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get population data for dashboard", "details": err.Error()})
 		return
 	}
-	// For simplicity, aggregate all population entries for total event population.
-	// A real-world scenario might take the max, or sum over a period for duration-based events.
 	for _, p := range populations {
 		totalPopulation += p.RegisteredCount + p.FloatingCount
 	}
 
-	// 3. Transport
+	//3. Transport
 	transports, err := models.GetAllTransports()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get transport data for dashboard", "details": err.Error()})
@@ -80,29 +101,47 @@ func GetDashboardSummary(c *gin.Context) {
 				transportFootprint += t.FuelLiters * EmissionFactorDiesel
 			} else if t.FuelType == "Petrol" || t.FuelType == "Gasoline" {
 				transportFootprint += t.FuelLiters * EmissionFactorPetrol
+			} else if t.FuelType == "Biofuel" {
+				transportFootprint += t.FuelLiters * EmissionFactorBiofuel
 			}
-			// Add more fuel types as needed
 		}
 	}
 	componentBreakdown["Transport"] = transportFootprint
 	totalCarbonFootprint += transportFootprint
 
-	// 4. Water Consumption
+	//  4. Water Consumption (from usage)
 	waterConsumptions, err := models.GetAllWaterConsumptions()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get water consumption data for dashboard", "details": err.Error()})
 		return
 	}
-	waterFootprint := 0.0
+	waterConsumptionFootprint := 0.0
 	for _, wc := range waterConsumptions {
-		if wc.MeterReading > 0 {
-			waterFootprint += wc.MeterReading * EmissionFactorWater
+		// Assuming total_consumption_kld is daily in KL (1 KL = 1000 L)
+		waterConsumptionFootprint += wc.TotalConsumptionKLD * 1000 * EmissionFactorWaterTreatmentDist
+	}
+	componentBreakdown["Water Consumption"] = waterConsumptionFootprint
+	totalCarbonFootprint += waterConsumptionFootprint
+
+	// 5. Water Treatment (from treatment processes)
+	waterTreatments, err := models.GetAllWaterTreatments()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get water treatment data for dashboard", "details": err.Error()})
+		return
+	}
+	waterTreatmentFootprint := 0.0
+	for _, wt := range waterTreatments {
+		if wt.ElectricityUsedKWH.Valid {
+			waterTreatmentFootprint += wt.ElectricityUsedKWH.Float64 * EmissionFactorGridElectricity
+		}
+		if wt.ChemicalsUsedQuantityKG.Valid {
+			waterTreatmentFootprint += wt.ChemicalsUsedQuantityKG.Float64 * EmissionFactorChemicals
 		}
 	}
-	componentBreakdown["Water"] = waterFootprint
-	totalCarbonFootprint += waterFootprint
+	componentBreakdown["Water Treatment"] = waterTreatmentFootprint
+	totalCarbonFootprint += waterTreatmentFootprint
 
-	// 5. Waste Generation
+	//6. Waste Generation
 	wasteEntries, err := models.GetAllWasteEntries()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get waste data for dashboard", "details": err.Error()})
@@ -112,43 +151,99 @@ func GetDashboardSummary(c *gin.Context) {
 	for _, w := range wasteEntries {
 		if w.WeightKG > 0 {
 			switch w.WasteType {
-			case "biodegradable":
+			case "Biodegradable":
 				wasteFootprint += w.WeightKG * EmissionFactorWasteBiodegradable
-			case "recyclable":
+			case "Recyclable":
 				wasteFootprint += w.WeightKG * EmissionFactorWasteRecyclable
-			case "landfill":
+			case "Landfill":
 				wasteFootprint += w.WeightKG * EmissionFactorWasteLandfill
+			case "Non-Biodegradable":
+
+				if w.SubCategory.String == "E-waste" {
+					wasteFootprint += w.WeightKG * EmissionFactorWasteEwaste
+				} else {
+					wasteFootprint += w.WeightKG * EmissionFactorWasteLandfill
+				}
 			}
 		}
 	}
 	componentBreakdown["Waste"] = wasteFootprint
 	totalCarbonFootprint += wasteFootprint
 
-	// 6. Accommodation (simplified - assuming direct energy/water already covered or negligible separate footprint)
-	// For simplicity, accommodation itself is not directly calculating CO2e here, as its impact
-	// largely comes from electricity, water, and waste, which are covered above.
-	// If specific factors for accommodation (e.g., heating per night) were available, they would be added here.
-	componentBreakdown["Accommodation"] = 0.0
+	// 7. Accommodation
+	accommodations, err := models.GetAllAccommodations()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get accommodation data for dashboard", "details": err.Error()})
+		return
+	}
+	accommodationFootprint := 0.0
+	for _, acc := range accommodations {
+		if acc.ElectricityConsumptionKWH.Valid {
+			accommodationFootprint += acc.ElectricityConsumptionKWH.Float64 * EmissionFactorGridElectricity
+		}
+		// Assuming water consumption is L/person/day for the duration.
+		if acc.WaterConsumptionLPD.Valid {
+			// Total L = people_count * nights * L/person/day
+			accommodationFootprint += float64(acc.PeopleCount) * float64(acc.Nights) * acc.WaterConsumptionLPD.Float64 * EmissionFactorWaterTreatmentDist
+		}
 
-	// 7. Goods Purchased (embodied carbon - highly complex, often estimated)
-	// This is a placeholder as embodied carbon calculation is typically complex and requires detailed product LCI data.
-	// For a simple example, we might assume a very rough factor per cost or quantity if no other data exists.
-	// goodsPurchased, err := models.GetAllGoodsPurchased()
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get goods purchased data for dashboard", "details": err.Error()})
-	// 	return
-	// }
-	componentBreakdown["Goods Purchased"] = 0.0 // Placeholder for now
+	}
+	componentBreakdown["Accommodation"] = accommodationFootprint
+	totalCarbonFootprint += accommodationFootprint
+
+	goodsPurchased, err := models.GetAllGoodsPurchased()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get goods purchased data for dashboard", "details": err.Error()})
+		return
+	}
+	goodsFootprint := 0.0
+	for _, gp := range goodsPurchased {
+
+		goodsFootprint += gp.BillAmountINR * EmissionFactorGoodsCost
+
+	}
+	componentBreakdown["Goods Purchased"] = goodsFootprint
+	totalCarbonFootprint += goodsFootprint
+
+	foodConsumptions, err := models.GetAllFoodConsumptions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get food consumption data for dashboard", "details": err.Error()})
+		return
+	}
+	foodFootprint := 0.0
+	for _, fc := range foodConsumptions {
+		if fc.WaterUsedLWashingCooking.Valid {
+			foodFootprint += fc.WaterUsedLWashingCooking.Float64 * EmissionFactorFoodWater
+		}
+		if fc.FuelUsedType.Valid {
+			switch fc.FuelUsedType.String {
+			case "LPG":
+				if fc.FuelUsedQuantity.Valid {
+					foodFootprint += fc.FuelUsedQuantity.Float64 * EmissionFactorLPG
+				}
+			case "Firewood":
+				if fc.FuelUsedQuantity.Valid {
+					foodFootprint += fc.FuelUsedQuantity.Float64 * EmissionFactorFirewood
+				}
+			case "Electricity":
+				if fc.FuelUsedQuantity.Valid {
+					foodFootprint += fc.FuelUsedQuantity.Float64 * EmissionFactorGridElectricity
+				}
+			}
+		}
+		// Embodied carbon of food items themselves is a huge factor but very complex.
+		// fc.QuantityCookedKgLiter could be used with specific food-type emission factors.
+	}
+	componentBreakdown["Food Consumption"] = foodFootprint
+	totalCarbonFootprint += foodFootprint
 
 	perCapitaFootprint := 0.0
 	if totalPopulation > 0 {
 		perCapitaFootprint = totalCarbonFootprint / float64(totalPopulation)
 	}
 
-	// Placeholder for trends over time
-	// This would involve querying data for specific date ranges and aggregating.
 	trends := map[string]interface{}{
-		"daily_carbon": []interface{}{}, // e.g., [{"date": "2024-01-01", "carbon": 100}, ...]
+		"daily_carbon": []interface{}{},
 	}
 
 	c.JSON(http.StatusOK, DashboardData{

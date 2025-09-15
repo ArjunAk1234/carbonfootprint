@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 var DB *sql.DB
@@ -36,6 +36,8 @@ func LoadConfig() {
 
 	DB = db
 	log.Println("Successfully connected to the database!")
+
+	// JWT Secret
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET environment variable not set")

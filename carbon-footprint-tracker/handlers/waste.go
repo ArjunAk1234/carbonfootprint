@@ -10,28 +10,52 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type WasteRequest struct {
+	Date               time.Time `json:"date"`
+	CollectionLocation string    `json:"collection_location"`
+	WasteType          string    `json:"waste_type" binding:"required"`
+	SubCategory        string    `json:"sub_category"`
+	WeightKG           float64   `json:"weight_kg" binding:"required"`
+	CollectionMethod   string    `json:"collection_method"`
+	TransportMode      string    `json:"transport_mode"`
+	Destination        string    `json:"destination"`
+	Remarks            string    `json:"remarks"`
+}
+
 func AddWasteEntry(c *gin.Context) {
-	var req models.Waste
+	var req WasteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if req.Location == "" {
-		req.Location = "Overall"
+	if req.CollectionLocation == "" {
+		req.CollectionLocation = "Overall" // Default location
 	}
-
 	if req.Date.IsZero() {
 		req.Date = time.Now()
 	}
 
-	if err := req.Create(); err != nil {
+	w := models.Waste{
+		Date:               req.Date,
+		CollectionLocation: req.CollectionLocation,
+		WasteType:          req.WasteType,
+		SubCategory:        toNullString(req.SubCategory),
+		WeightKG:           req.WeightKG,
+		CollectionMethod:   toNullString(req.CollectionMethod),
+		TransportMode:      toNullString(req.TransportMode),
+		Destination:        toNullString(req.Destination),
+		Remarks:            toNullString(req.Remarks),
+	}
+
+	if err := w.Create(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add waste entry", "details": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Waste entry added successfully", "id": req.ID})
+	c.JSON(http.StatusCreated, gin.H{"message": "Waste entry added successfully", "id": w.ID})
 }
+
 func GetWasteData(c *gin.Context) {
 	wastes, err := models.GetAllWasteEntries()
 	if err != nil {
@@ -59,27 +83,27 @@ func UpdateWasteEntry(c *gin.Context) {
 		return
 	}
 
-	var req models.Waste
+	var req WasteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if req.SpotName != "" {
-		w.SpotName = req.SpotName
+	w.Date = req.Date
+	if req.CollectionLocation != "" {
+		w.CollectionLocation = req.CollectionLocation
 	}
 	if req.WasteType != "" {
 		w.WasteType = req.WasteType
 	}
+	w.SubCategory = toNullString(req.SubCategory)
 	if req.WeightKG != 0 {
 		w.WeightKG = req.WeightKG
 	}
-	if !req.Date.IsZero() {
-		w.Date = req.Date
-	}
-	if req.Location != "" {
-		w.Location = req.Location
-	}
+	w.CollectionMethod = toNullString(req.CollectionMethod)
+	w.TransportMode = toNullString(req.TransportMode)
+	w.Destination = toNullString(req.Destination)
+	w.Remarks = toNullString(req.Remarks)
 
 	if err := w.Update(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update waste entry", "details": err.Error()})

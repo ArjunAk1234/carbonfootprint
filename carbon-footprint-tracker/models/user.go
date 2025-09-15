@@ -10,8 +10,8 @@ type User struct {
 	ID           int       `json:"id"`
 	Name         string    `json:"name"`
 	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash,omitempty"`
-	Role         string    `json:"role"`
+	PasswordHash string    `json:"password_hash,omitempty"` // Omit for security on output
+	Role         string    `json:"role"`                    // 'admin', 'staff', 'viewer'
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

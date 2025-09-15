@@ -13,7 +13,7 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
-	Role     string `json:"role" binding:"required"`
+	Role     string `json:"role" binding:"required"` // 'admin', 'staff', 'viewer'
 }
 
 type LoginRequest struct {
@@ -21,6 +21,7 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// RegisterUser handles user registration
 func RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -37,7 +38,7 @@ func RegisterUser(c *gin.Context) {
 	user := models.User{
 		Name:         req.Name,
 		Email:        req.Email,
-		PasswordHash: req.Password,
+		PasswordHash: req.Password, // This will be hashed in the Create method
 		Role:         req.Role,
 	}
 
@@ -49,6 +50,7 @@ func RegisterUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID})
 }
 
+// LoginUser handles user login and JWT token generation
 func LoginUser(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
